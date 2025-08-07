@@ -8,43 +8,106 @@ on:
       - main
       - master
       - develop
+
 name: "Build & Release"
+
 jobs:
   build:
     name: Build & Release
     runs-on: macos-latest
-#    runs-on: windows
+
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
+
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           architecture: x64
 
+      # Install Dart & Flutter dependencies
+      - run: flutter pub get
+
+      # 👇 Install CocoaPods dependencies
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+          cd ..
+
+      # ✅ Build Android APK
       - run: flutter build apk --release --split-per-abi
+
+      # ✅ Build iOS IPA (without codesign)
       - run: |
           flutter build ios --no-codesign
           cd build/ios/iphoneos
           mkdir Payload
-          cd Payload
-          ln -s ../Runner.app
-          cd ..
+          cp -r Runner.app Payload/
           zip -r app.ipa Payload
+          mv app.ipa ../../../app.ipa
+
+      # ✅ Push both APK & IPA to Releases
       - name: Push to Releases
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/apk/release/*,build/ios/iphoneos/app.ipa"
+          artifacts: "build/app/outputs/apk/release/*.apk,app.ipa"
           tag: v1.0.${{ github.run_number }}
           token: ${{ secrets.TOKEN }}
 
 
 
-
-
-
-# push to master, main, develop
-# pull request on main master
+#on:
+#  pull_request:
+#    branches:
+#      - main
+#      - master
+#  push:
+#    branches:
+#      - main
+#      - master
+#      - develop
+#name: "Build & Release"
+#jobs:
+#  build:
+#    name: Build & Release
+#    runs-on: macos-latest
+##    runs-on: windows
+#    steps:
+#      - uses: actions/checkout@v3
+#      - uses: actions/setup-java@v3
+#        with:
+#          distribution: 'temurin'
+#          java-version: '17'
+#      - uses: subosito/flutter-action@v2
+#        with:
+#          channel: 'stable'
+#          architecture: x64
+#
+#      - run: flutter build apk --release --split-per-abi
+#      - run: |
+#          flutter build ios --no-codesign
+#          cd build/ios/iphoneos
+#          mkdir Payload
+#          cd Payload
+#          ln -s ../Runner.app
+#          cd ..
+#          zip -r app.ipa Payload
+#      - name: Push to Releases
+#        uses: ncipollo/release-action@v1
+#        with:
+#          artifacts: "build/app/outputs/apk/release/*,build/ios/iphoneos/app.ipa"
+#          tag: v1.0.${{ github.run_number }}
+#          token: ${{ secrets.TOKEN }}
+#
+#
+#
+#
+#
+#
+## push to master, main, develop
+## pull request on main master
